@@ -1268,12 +1268,19 @@ class Resize:
         else:
             mode = "nearest"
         roi = ctx.make_const(utils.make_name("roi"), np.array([]).astype(np.float32))
-        const_zero = ctx.make_const(utils.make_name("const_zero"), np.array([0]).astype(np.int64))
-        const_two = ctx.make_const(utils.make_name("const_two"), np.array([2]).astype(np.int64))
         const_empty_float = ctx.make_const(utils.make_name("const_empty_float"), np.array([]).astype(np.float32))
+
         input_nchw = ctx.make_node("Transpose", [node.input[0]], {"perm": constants.NHWC_TO_NCHW})
-        shape_input = ctx.make_node("Shape", [input_nchw.output[0]])
-        sliced_shape = ctx.make_node("Slice", [shape_input.output[0], const_zero.output[0], const_two.output[0]])
+
+        sh = np.array(input_nchw.output_shapes[0][2:4], dtype=np.int64)
+        if all(sh > 0):
+            sliced_shape = ctx.make_const(utils.make_name("sliced_shape_const"), sh)
+        else:
+            shape_input = ctx.make_node("Shape", [input_nchw.output[0]])
+            const_zero = ctx.make_const(utils.make_name("const_zero"), np.array([0]).astype(np.int64))
+            const_two = ctx.make_const(utils.make_name("const_two"), np.array([2]).astype(np.int64))
+            sliced_shape = ctx.make_node("Slice", [shape_input.output[0], const_zero.output[0], const_two.output[0]])
+
         size_int64 = ctx.make_node("Cast", [node.input[1]], attr={"to": onnx_pb.TensorProto.INT64})
         concat_shape = ctx.make_node("Concat", [sliced_shape.output[0], size_int64.output[0]], {'axis': 0})
         resize_inputs = [

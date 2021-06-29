@@ -5,6 +5,7 @@
    if op's inputs are all const then do op computation when building the graph to improve performance
    for example, input of transpose node is const then we can do transpose statically instead of at runtime
 """
+import numpy as np
 
 from .. import utils
 from .optimizer_base import GraphOptimizerBase
@@ -112,6 +113,15 @@ class ConstFoldOptimizer(GraphOptimizerBase):
         perm_attr = node.get_attr("perm")
         perm = perm_attr.ints if perm_attr else None
         const_val_after_trans = const_val.transpose(perm)
+        return [const_val_after_trans]
+
+    @staticmethod
+    @_register_func("Concat")
+    def _fold_concat(node, graph) -> list:
+        axis_attr = node.get_attr("axis")
+        axis = axis_attr.i if axis_attr else None
+        const_val = [x.get_tensor_value(as_list=False) for x in node.inputs]
+        const_val_after_trans = np.concatenate(const_val, axis=axis)
         return [const_val_after_trans]
 
     @staticmethod
